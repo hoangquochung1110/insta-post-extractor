@@ -1,0 +1,1 @@
+from src.functions.ig_post_extractor import lambda_handler

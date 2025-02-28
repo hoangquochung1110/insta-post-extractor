@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "instagram-post-link-extractor"
+version = "0.1.0"
+authors = [
+    { name = "Hung Hoang", email = "arsenalforeversince2007@gmail.com" },
+]
+description = "Serverless function to extract Instagram post links from a given URL"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["."]
+
+[project.optional-dependencies]
+dev = [
+]
