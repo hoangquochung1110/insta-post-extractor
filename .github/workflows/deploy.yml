@@ -1,0 +1,76 @@
+name: Lambda CI/CD Pipeline
+
+on:
+  push:
+    branches: [ development ]
+
+env:
+  AWS_REGION: ap-southeast-1
+  S3_BUCKET: ig-post-extractor-artifact
+  LAMBDA_NAME: IgPostExtractor
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Install a specific version of uv.
+          version: "0.6.6"
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          uv pip install -r pyproject.toml
+      
+      - name: Determine environment and version
+        id: env_setup
+        run: |
+          if [[ ${{ github.ref }} == refs/heads/dev ]]; then
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "VERSION=LATEST" >> $GITHUB_ENV
+          else
+            echo "ENV=prod" >> $GITHUB_ENV
+            # Choose one of the version extraction methods above
+            VERSION=$(python -c "import re; print(re.search(r'__version__\s*=\s*[\'\"](.*?)[\'\"]', open('your_module/__init__.py').read()).group(1))")
+            echo "VERSION=v$VERSION" >> $GITHUB_ENV
+          fi
+      
+      - name: Package Lambda
+        run: |
+          cd src/functions
+          uv pip install -r pyproject.toml
+          zip -r ig_post_extractor.zip ig_post_extractor.py
+      
+          # mkdir -p package
+          # cp -r your_module package/
+          # pip install -r requirements.txt -t package/
+          # cd package && zip -r ../lambda-function.zip .
+          # cd .. && echo "{\"version\": \"${{ env.VERSION }}\", \"commit\": \"${{ github.sha }}\", \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > metadata.json
+      
+      - name: Upload to S3
+        run: |
+          aws s3 cp ig_post_extractor.zip s3://${{ env.S3_BUCKET }}/${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
+      - name: Back to working directory
+        run: |
+          cd ...
+      - name: Deploy
+        run: |
+          aws lambda update-function-code \
+            --function-name env.LAMBDA_NAME \
+            --s3-bucket ${{ env.S3_BUCKET }} \
+            --s3-key ${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
