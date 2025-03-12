@@ -33,8 +33,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Set up venv and install dependencies
         run: |
+          uv venv
           uv pip install -r requirements.txt
       
       - name: Determine environment and version
