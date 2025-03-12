@@ -7,7 +7,7 @@ resource "aws_lambda_function" "function" {
 
   # The bucket name as created earlier with "aws s3api create-bucket"
   s3_bucket = "ig-post-extractor-artifact"
-  s3_key    = "v${var.app_version}/ig_post_extractor.zip"
+  s3_key    = "${var.app_version}/ig_post_extractor.zip"
 
   # "main" is the filename within the zip file (main.js) and "handler"
   # is the name of the property under which the handler function was
