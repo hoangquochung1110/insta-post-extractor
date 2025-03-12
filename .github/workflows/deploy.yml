@@ -35,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -r pyproject.toml
+          uv pip install -r requirements.txt
       
       - name: Determine environment and version
         id: env_setup
@@ -53,9 +53,9 @@ jobs:
       - name: Package Lambda
         run: |
           cd src/functions
-          uv pip install -r pyproject.toml
+          uv pip install -r requirements.txt
           zip -r ig_post_extractor.zip ig_post_extractor.py
-      
+
           # mkdir -p package
           # cp -r your_module package/
           # pip install -r requirements.txt -t package/
