@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import boto3
 
 brt = boto3.client(service_name='bedrock-runtime', region_name='us-east-1')
+model_id = "us.deepseek.r1-v1:0"
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
@@ -39,10 +40,10 @@ def extract_og_title(raw_html: str) -> Optional[str]:
 
 def extract_address(text: str):
     response = brt.converse(
-        modelId='amazon.nova-lite-v1:0',
+        modelId=model_id,
         messages=[{
             "role": "user",
-            "content": [{"text": f"Extract address-like text from this following text: {text}. Delimit it by triple backticks."}]
+            "content": [{"text": f"Extract address-like text from this following text if possible: {text}. Delimit it by triple backticks if found. Otherwise, return this string <None>"}]
         }],
         inferenceConfig={
             "maxTokens": 500,
@@ -61,7 +62,7 @@ def extract_address(text: str):
         "https://maps.google.com/?q=" + urllib.parse.quote_plus(address)
         for address in matches
     ]
-    return google_maps_links if matches else None
+    return google_maps_links if matches else []
 
 
 def find_links(text: str) -> List[str]:
@@ -132,11 +133,12 @@ def lambda_handler(event, _context):
             return create_response(400, error='Invalid Instagram post URL')
 
         links, error_message = extract_address_from_post(url)
-
+        logger.info(f'Links: {links}')
+        logger.info(f'Error: {error_message}')
         if error_message:
             return create_response(400, error=error_message)
         elif len(links) == 0:
-            return create_response(400, error='No links found in the post')
+            return create_response(400, error='No address found in the post')
 
         return create_response(200, body={'links': links})
 
