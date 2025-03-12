@@ -2,7 +2,7 @@ provider "aws" {
   region = "ap-southeast-1"
 }
 
-resource "aws_lambda_function" "IgPostExtractor" {
+resource "aws_lambda_function" "function" {
   function_name = "IgPostExtractor"
 
   # The bucket name as created earlier with "aws s3api create-bucket"
@@ -56,36 +56,20 @@ data "aws_iam_policy_document" "inline_policy" {
   }
 }
 
-resource "aws_api_gateway_resource" "proxy" {
-  rest_api_id = "${aws_api_gateway_rest_api.IgPostExtractorGateway.id}"
-  parent_id   = "${aws_api_gateway_rest_api.IgPostExtractorGateway.root_resource_id}"
-  path_part   = "{proxy+}"
-}
-
-resource "aws_api_gateway_method" "proxy" {
-  rest_api_id   = "${aws_api_gateway_rest_api.IgPostExtractorGateway.id}"
-  resource_id   = "${aws_api_gateway_resource.proxy.id}"
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_integration" "lambda" {
-  rest_api_id = "${aws_api_gateway_rest_api.IgPostExtractorGateway.id}"
-  resource_id = "${aws_api_gateway_method.proxy.resource_id}"
-  http_method = "${aws_api_gateway_method.proxy.http_method}"
-
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = "${aws_lambda_function.IgPostExtractor.invoke_arn}"
-}
-
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = "${aws_lambda_function.IgPostExtractor.function_name}"
+  function_name = "${aws_lambda_function.function.function_name}"
   principal     = "apigateway.amazonaws.com"
 
   # The /*/* portion grants access from any method on any resource
   # within the API Gateway "REST API".
   source_arn = "${aws_api_gateway_rest_api.IgPostExtractorGateway.execution_arn}/*/*"
+}
+
+resource "aws_lambda_alias" "dev" {
+  name             = "dev"
+  description      = "Dev alias pointing to $LATEST"
+  function_name    = aws_lambda_function.function.arn
+  function_version = "$LATEST"
 }
