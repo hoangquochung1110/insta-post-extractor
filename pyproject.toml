@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagram-post-link-extractor"
-version = "0.1.0"
+version = "0.0.0.dev1"
 authors = [
     { name = "Hung Hoang", email = "arsenalforeversince2007@gmail.com" },
 ]
