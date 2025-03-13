@@ -46,16 +46,10 @@ jobs:
       
       - name: Package Lambda
         run: |
-          cd src/functions
           uv pip install -r requirements.txt
+          cd src/functions
           zip -r ig_post_extractor.zip ig_post_extractor.py
 
-          # mkdir -p package
-          # cp -r your_module package/
-          # pip install -r requirements.txt -t package/
-          # cd package && zip -r ../lambda-function.zip .
-          # cd .. && echo "{\"version\": \"${{ env.VERSION }}\", \"commit\": \"${{ github.sha }}\", \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > metadata.json
-      
       - name: Upload to S3
         run: |
           aws s3 cp ig_post_extractor.zip s3://${{ env.S3_BUCKET }}/${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
