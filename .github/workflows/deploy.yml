@@ -41,15 +41,8 @@ jobs:
       - name: Determine environment and version
         id: env_setup
         run: |
-          if [[ ${{ github.ref }} == refs/heads/dev ]]; then
             echo "ENV=dev" >> $GITHUB_ENV
             echo "VERSION=LATEST" >> $GITHUB_ENV
-          else
-            echo "ENV=prod" >> $GITHUB_ENV
-            # Choose one of the version extraction methods above
-            VERSION=$(python -c "import re; print(re.search(r'__version__\s*=\s*[\'\"](.*?)[\'\"]', open('your_module/__init__.py').read()).group(1))")
-            echo "VERSION=v$VERSION" >> $GITHUB_ENV
-          fi
       
       - name: Package Lambda
         run: |
