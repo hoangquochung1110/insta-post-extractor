@@ -25,7 +25,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          # Install a specific version of uv.
           version: "0.6.6"
       
       - name: Set up Python
@@ -41,24 +40,25 @@ jobs:
       - name: Determine environment and version
         id: env_setup
         run: |
-            echo "ENV=dev" >> $GITHUB_ENV
-            echo "VERSION=LATEST" >> $GITHUB_ENV
+          echo "ENV=dev" >> $GITHUB_ENV
+          echo "VERSION=LATEST" >> $GITHUB_ENV
       
       - name: Package Lambda
         run: |
-          uv pip install -r requirements.txt
-          cd src/functions
-          zip -r ig_post_extractor.zip ig_post_extractor.py
+          mkdir -p package
+          cp -r src/functions/ig_post_extractor.py package/
+          cd package
+          pip install -r ../requirements.txt -t .
+          zip -r ../ig_post_extractor.zip .
+          cd ..
 
       - name: Upload to S3
         run: |
           aws s3 cp ig_post_extractor.zip s3://${{ env.S3_BUCKET }}/${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
-      - name: Back to working directory
-        run: |
-          cd ...
+      
       - name: Deploy
         run: |
           aws lambda update-function-code \
-            --function-name env.LAMBDA_NAME \
+            --function-name ${{ env.LAMBDA_NAME }} \
             --s3-bucket ${{ env.S3_BUCKET }} \
             --s3-key ${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
