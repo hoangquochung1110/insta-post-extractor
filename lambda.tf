@@ -26,45 +26,19 @@ variable "app_version" {
 # may access.
 resource "aws_iam_role" "ig_post_extractor_exec_role" {
   name = "ig_post_extractor_exec_role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
+  assume_role_policy = jsonencode(
     {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "lambda.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
-}
-EOF
-
-  inline_policy {
-    name   = "policy-8675309"
-    policy = data.aws_iam_policy_document.inline_policy.json
-  }
-}
-
-data "aws_iam_policy_document" "inline_policy" {
-  statement {
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["*"]
-  }
-}
-
-resource "aws_lambda_permission" "apigw" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.function.function_name
-  principal     = "apigateway.amazonaws.com"
-
-  # The /*/* portion grants access from any method on any resource
-  # within the API Gateway "REST API".
-  source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Effect" : "Allow",
+          "Principal" : {
+            "Service" : "lambda.amazonaws.com"
+          },
+          "Action" : "sts:AssumeRole"
+        }
+      ]
+  })
 }
 
 resource "aws_lambda_alias" "dev" {
@@ -72,4 +46,20 @@ resource "aws_lambda_alias" "dev" {
   description      = "Dev alias pointing to $LATEST"
   function_name    = aws_lambda_function.function.arn
   function_version = "$LATEST"
+}
+
+# Gives an external source (like an EventBridge Rule, SNS, or S3) permission to access the Lambda function.
+# aka Resource Policy
+resource "aws_lambda_permission" "allow_apigateway" {
+  statement_id  = "AllowExecutionFromApiGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.function.function_name
+  principal     = "apigateway.amazonaws.com"
+
+  # to specify function version or alias name.
+  # means this permission applies to dev alias only
+  qualifier = "dev"
+
+  # execution_arn/stage/method/resource
+  source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/*/*/*"
 }

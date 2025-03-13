@@ -14,33 +14,46 @@ resource "aws_api_gateway_method" "post_root" {
   authorization = "NONE"
 }
 
-// Integration at root level (No resources) for dev environment
-resource "aws_api_gateway_integration" "dev_integration_root" {
+resource "aws_api_gateway_integration" "root_post_integration" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_method.post_root.resource_id
-  http_method = aws_api_gateway_method.post_root.http_method
-
+  resource_id   = aws_api_gateway_rest_api.main.root_resource_id
+  http_method = "POST"
   integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_alias.dev.invoke_arn
+  type = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:ap-southeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-southeast-1:838835070561:function:${aws_lambda_function.function.function_name}:$${stageVariables.lambda_alias}/invocations"
 }
 
-resource "aws_api_gateway_deployment" "dev_integration_root" {
-  depends_on = [
-    aws_api_gateway_integration.dev_integration_root,
-  ]
-
+resource "aws_api_gateway_deployment" "dev" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  stage_name  = "dev"
+
+  triggers = {
+    redeployment = sha1(jsonencode(aws_api_gateway_integration.root_post_integration.id))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
+resource "aws_api_gateway_stage" "dev" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  deployment_id = aws_api_gateway_deployment.dev.id
+  stage_name    = "dev"
+  variables = {
+    lambda_alias = "${aws_lambda_alias.dev.name}"
+  }
+}
+
+
+# Usage plan for dev stage
 resource "aws_api_gateway_usage_plan" "dev" {
   name        = "Dev Usage Plan"
-  description = "Usage Plan for api gateway in dev environment"
+  description = "Usage Plan for api gateway in dev stage/environment"
 
   api_stages {
     api_id = aws_api_gateway_rest_api.main.id
-    stage  = aws_api_gateway_deployment.dev_integration_root.stage_name
+    # TODO: change to stage resource reference
+    stage = aws_api_gateway_stage.dev.stage_name
   }
 
   quota_settings {
@@ -55,15 +68,3 @@ resource "aws_api_gateway_usage_plan" "dev" {
   }
 }
 
-data "aws_api_gateway_api_key" "api_key" {
-  id = "jyd5db5qrh"
-}
-
-output "dev_base_url" {
-  value = aws_api_gateway_deployment.dev_integration_root.invoke_url
-}
-
-output "api_key" {
-  value     = data.aws_api_gateway_api_key.api_key.value
-  sensitive = true
-}
