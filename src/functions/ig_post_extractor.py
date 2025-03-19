@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import boto3
 
-brt = boto3.client(service_name='bedrock-runtime', region_name='us-east-1')
-model_id = "us.deepseek.r1-v1:0"
+brt = boto3.client(service_name='bedrock-runtime', region_name='ap-southeast-1')
+model_id = "amazon.nova-micro-v1:0"
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
