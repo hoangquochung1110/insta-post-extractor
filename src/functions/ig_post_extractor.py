@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import boto3
 
 brt = boto3.client(service_name='bedrock-runtime', region_name='ap-southeast-1')
-model_id = "amazon.nova-micro-v1:0"
+model_id = "apac.amazon.nova-micro-v1:0"
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
