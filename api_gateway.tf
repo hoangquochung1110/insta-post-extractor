@@ -8,23 +8,26 @@ resource "aws_api_gateway_rest_api" "main" {
 
 # Post method at root resource (level)
 resource "aws_api_gateway_method" "post_root" {
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_rest_api.main.root_resource_id
-  http_method   = "POST"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.main.id
+  resource_id      = aws_api_gateway_rest_api.main.root_resource_id
+  http_method      = "POST"
+  authorization    = "NONE"
+  api_key_required = true
 }
 
 resource "aws_api_gateway_integration" "root_post_integration" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_rest_api.main.root_resource_id
-  http_method = "POST"
+  rest_api_id             = aws_api_gateway_rest_api.main.id
+  resource_id             = aws_api_gateway_rest_api.main.root_resource_id
+  http_method             = "POST"
   integration_http_method = "POST"
-  type = "AWS_PROXY"
+  type                    = "AWS_PROXY"
   uri                     = "arn:aws:apigateway:ap-southeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-southeast-1:838835070561:function:${aws_lambda_function.function.function_name}:$${stageVariables.lambda_alias}/invocations"
 }
 
-resource "aws_api_gateway_deployment" "dev" {
+resource "aws_api_gateway_deployment" "deployment" {
   rest_api_id = aws_api_gateway_rest_api.main.id
+
+  depends_on = [aws_cloudwatch_log_group.api_gw_log_group]
 
   triggers = {
     redeployment = sha1(jsonencode(aws_api_gateway_integration.root_post_integration.id))
@@ -35,25 +38,25 @@ resource "aws_api_gateway_deployment" "dev" {
   }
 }
 
-resource "aws_api_gateway_stage" "dev" {
+resource "aws_api_gateway_stage" "stage" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  deployment_id = aws_api_gateway_deployment.dev.id
-  stage_name    = "dev"
+  deployment_id = aws_api_gateway_deployment.deployment.id
+  stage_name    = var.env
   variables = {
-    lambda_alias = "${aws_lambda_alias.dev.name}"
+    lambda_alias = var.env
   }
 }
 
 
-# Usage plan for dev stage
-resource "aws_api_gateway_usage_plan" "dev" {
-  name        = "Dev Usage Plan"
-  description = "Usage Plan for api gateway in dev stage/environment"
+
+resource "aws_api_gateway_usage_plan" "usage_plan" {
+  name        = "${var.env} Usage Plan"
+  description = "Usage Plan for api gatewayt"
 
   api_stages {
     api_id = aws_api_gateway_rest_api.main.id
     # TODO: change to stage resource reference
-    stage = aws_api_gateway_stage.dev.stage_name
+    stage = aws_api_gateway_stage.stage.stage_name
   }
 
   quota_settings {
@@ -68,3 +71,12 @@ resource "aws_api_gateway_usage_plan" "dev" {
   }
 }
 
+resource "aws_api_gateway_api_key" "jyd5db5qrh" {
+  name = "jyd5db5qrh"
+}
+
+resource "aws_api_gateway_usage_plan_key" "usage_plan_key_attachment" {
+  key_id        = aws_api_gateway_api_key.jyd5db5qrh.id
+  key_type      = "API_KEY"
+  usage_plan_id = aws_api_gateway_usage_plan.usage_plan.id
+}
