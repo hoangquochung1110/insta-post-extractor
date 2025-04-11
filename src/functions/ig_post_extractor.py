@@ -43,7 +43,7 @@ def extract_address(text: str):
         modelId=model_id,
         messages=[{
             "role": "user",
-            "content": [{"text": f"Extract address-like text from this following text if possible: {text}. Delimit it by triple backticks if found. Otherwise, return this string <None>"}]
+            "content": [{"text": f"Extract address-like text from this following text if possible: {text}. Return a JSON object with the key 'address'. The value should be the extracted address string, or null if no address is found. Example: {{\"address\": \"123 Main St, Anytown, USA\"}} or {{\"address\": null}}."}]
         }],
         inferenceConfig={
             "maxTokens": 500,
@@ -51,18 +51,33 @@ def extract_address(text: str):
             "topP": 0.9
         }
     )
-    response_pattern = r"```(.*?)```"
     # Extract the response
     response_message = response.get('output', {}).get('message', {})
     generated_text = response_message.get('content', [{}])[0].get('text', '')
-    print(generated_text)
-    matches = re.findall(response_pattern, generated_text, re.DOTALL)
+    print(f"LLM Raw Response: {generated_text}")
 
-    google_maps_links = [
-        "https://maps.google.com/?q=" + urllib.parse.quote_plus(address)
-        for address in matches
-    ]
-    return google_maps_links if matches else []
+    try:
+        # Attempt to find JSON within potentially messy output
+        json_match = re.search(r'\{.*\}', generated_text, re.DOTALL)
+        if not json_match:
+            logger.warning(f"No JSON object found in LLM response: {generated_text}")
+            return []
+
+        parsed_json = json.loads(json_match.group(0))
+        address = parsed_json.get('address')
+
+        if address:
+            google_maps_link = "https://maps.google.com/?q=" + urllib.parse.quote_plus(address)
+            return [google_maps_link]
+        else:
+            logger.info(f"No address found by LLM in text: {text}")
+            return []
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON from LLM response: {generated_text}")
+        return []
+    except Exception as e: # pylint: disable=broad-except
+        logger.error(f"Error processing LLM response: {e}")
+        return []
 
 
 def find_links(text: str) -> List[str]:
