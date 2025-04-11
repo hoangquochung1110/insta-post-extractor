@@ -122,3 +122,4 @@ override.tf.json
 terraform.rc
 
 *.zip
+package/
