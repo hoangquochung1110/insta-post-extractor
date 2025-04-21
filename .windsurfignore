@@ -1,0 +1,12 @@
+# ignore all tfvars
+*.tfvars
+*.tfvars.example
+
+# ignore any Codeium or IDE files
+.codeiumignore
+.idea/
+*.iml
+
+# ignore secret material
+secrets/
+*.pem

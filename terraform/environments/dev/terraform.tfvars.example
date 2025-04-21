@@ -1,0 +1,8 @@
+# terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in the actual values.
+
+# Name of the existing CloudWatch log group to import/manage
+api_gw_log_group = "<API-Gateway-Execution-Logs_59vejac25d/dev>"
+
+# Name of the API key created for your usage plan
+api_key_name     = "<9objrbstec>"
