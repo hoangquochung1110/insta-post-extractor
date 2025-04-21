@@ -5,6 +5,13 @@ terraform {
       version = "~> 5.32"
     }
   }
+
+  backend "s3" {
+    bucket = "ig-post-extractor-terraform-state"
+    key    = "dev/terraform.tfstate"
+    region = "ap-southeast-1"
+    encrypt = true
+  }
 }
 
 provider "aws" {
