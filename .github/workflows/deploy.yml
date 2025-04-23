@@ -28,8 +28,7 @@ jobs:
           use-installer: true
       - uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
       - name: Install dependencies
         run: |
@@ -61,9 +60,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -75,11 +73,6 @@ jobs:
         with:
           version: '1.137.1'
           use-installer: true
-      - uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Build with SAM
         run: sam build --template-file template.yaml
@@ -150,9 +143,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Download SAM package
         uses: actions/download-artifact@v4
@@ -170,10 +162,6 @@ jobs:
           terraform apply -auto-approve \
             -var="artifact_bucket=${{ env.S3_BUCKET }}" \
             -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Publish Lambda Version
         id: publish_version
