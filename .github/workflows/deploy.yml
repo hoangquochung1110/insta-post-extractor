@@ -72,13 +72,13 @@ jobs:
       - name: Build with SAM
         run: sam build --template-file template.yaml
 
-      - name: Package with SAM
+      - name: Creates a .zip file of your code and dependencies, and uploads the file to Amazon S3
         id: package
         run: |
           sam package \
             --template-file .aws-sam/build/template.yaml \
             --s3-bucket ${{ env.S3_BUCKET }} \
-            --s3-prefix ${{ github.sha }} \
+            --s3-prefix functions/ig_post_extractor/${{ github.sha }}.zip \
             --output-template-file packaged.yaml
           echo "s3-prefix=${{ github.sha }}" >> $GITHUB_OUTPUT
 
@@ -135,7 +135,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Download SAM package
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: sam-package
 

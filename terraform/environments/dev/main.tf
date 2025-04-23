@@ -22,6 +22,7 @@ provider "aws" {
 locals {
   project     = "IgPostExtractor"
   environment = "dev"
+  function_folder = "functions"
   execution_role_name = "ig_post_extractor_exec_role"
 
   lambda_functions = {
@@ -32,7 +33,7 @@ locals {
       memory_size   = 128
       timeout       = 30
       s3_bucket                      = var.artifact_bucket
-      s3_key                         = "${local.environment}/${var.artifact_prefix}/ig_post_extractor.zip"
+      s3_key    = "${local.functions_folder}/${each.key}/${var.artifact_prefix}.zip"
       publish = false
       # Define aliases for this function
       aliases = {
