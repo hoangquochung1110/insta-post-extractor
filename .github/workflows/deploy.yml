@@ -108,9 +108,9 @@ jobs:
     defaults:
       run:
         working-directory: terraform/environments/dev
-    # Manual approval gate: reviewers must approve in GitHub 'development' environment settings
+    # Manual approval gate: reviewers must approve in GitHub 'dev' environment settings
     environment:
-      name: development
+      name: dev
     steps:
       - uses: actions/checkout@v4
 
