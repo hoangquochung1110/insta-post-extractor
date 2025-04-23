@@ -3,6 +3,8 @@ name: Lambda CI/CD Pipeline
 on:
   push:
     branches: [ development ]
+  pull_request:
+    branches: [ development ]
 
 env:
   AWS_REGION: ap-southeast-1
@@ -10,55 +12,149 @@ env:
   LAMBDA_NAME: IgPostExtractor
 
 jobs:
-  build:
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v1
+        with:
+          version: '1.x'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq make
+      - name: Run simple tests via Makefile
+        run: make test-all
+      # TODO: Replace Makefile-based tests with a proper test framework as project grows
+
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      s3-prefix: ${{ steps.package.outputs.s3-prefix }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
+          aws-region: ${{ env.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.6.6"
-      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: Set up venv and install dependencies
-        run: |
-          uv venv .venv --python 3.12.1
-          uv pip install -r requirements.txt
-      
-      - name: Determine environment and version
-        id: env_setup
-        run: |
-          echo "ENV=dev" >> $GITHUB_ENV
-          echo "VERSION=LATEST" >> $GITHUB_ENV
-      
-      - name: Package Lambda
-        run: |
-          mkdir -p package
-          cp -r src/functions/ig_post_extractor.py package/
-          cd package
-          pip install -r ../requirements.txt -t .
-          zip -r ../ig_post_extractor.zip .
-          cd ..
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v1
+        with:
+          version: '1.x'
 
-      - name: Upload to S3
+      - name: Build with SAM
+        run: sam build --template-file template.yaml
+
+      - name: Package with SAM
+        id: package
         run: |
-          aws s3 cp ig_post_extractor.zip s3://${{ env.S3_BUCKET }}/${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
-      
-      - name: Deploy
-        run: |
-          aws lambda update-function-code \
-            --function-name ${{ env.LAMBDA_NAME }} \
+          sam package \
+            --template-file .aws-sam/build/template.yaml \
             --s3-bucket ${{ env.S3_BUCKET }} \
-            --s3-key ${{ env.ENV }}/${{ env.VERSION }}/ig_post_extractor.zip
+            --s3-prefix ${{ github.sha }} \
+            --output-template-file packaged.yaml
+          echo "s3-prefix=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sam-package
+          path: packaged.yaml
+
+  # --- Terraform Plan Job: preview infrastructure changes in PRs using remote state backend ---
+  terraform-plan:
+    name: Terraform Plan
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Set working directory to dev environment Terraform config
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Terraform Setup
+        uses: hashicorp/setup-terraform@v2
+      - name: Terraform Init
+        run: terraform init
+      - name: Terraform Plan
+        run: |
+          terraform plan -input=false -out=tfplan \
+            -var="artifact_bucket=${{ env.S3_BUCKET }}" \
+            -var="artifact_prefix=${{ needs.build.outputs.s3-prefix }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+
+  # --- Deploy Job: apply changes and publish Lambda updates ---
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+    # Manual approval gate: reviewers must approve in GitHub 'development' environment settings
+    environment:
+      name: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Download SAM package
+        uses: actions/download-artifact@v3
+        with:
+          name: sam-package
+
+      - name: Terraform Setup
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve \
+            -var="artifact_bucket=${{ env.S3_BUCKET }}" \
+            -var="artifact_prefix=${{ needs.build.outputs.s3-prefix }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+      - name: Publish Lambda Version
+        id: publish_version
+        run: |
+          version=$(aws lambda publish-version \
+            --function-name ${{ env.LAMBDA_NAME }} \
+            --output text \
+            --query Version)
+          echo "Published version $version"
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Update dev alias to latest version
+        run: |
+          aws lambda update-alias \
+            --function-name ${{ env.LAMBDA_NAME }} \
+            --name dev \
+            --function-version ${{ steps.publish_version.outputs.version }}
