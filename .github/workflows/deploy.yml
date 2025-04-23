@@ -77,8 +77,9 @@ jobs:
         run: |
           sam package \
             --template-file .aws-sam/build/template.yaml \
+            --output-template-file ${{ github.sha }}.zip \
             --s3-bucket ${{ env.S3_BUCKET }} \
-            --s3-prefix functions/ig_post_extractor/${{ github.sha }}.zip \
+            --s3-prefix functions/ig_post_extractor \
             --output-template-file packaged.yaml
           echo "s3-prefix=${{ github.sha }}" >> $GITHUB_OUTPUT
 
