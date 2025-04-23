@@ -14,6 +14,18 @@ env:
   LAMBDA_NAME: IgPostExtractor
 
 jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
+        with:
+          exclude: ".svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg"
+          targets: "src/functions/"
+          confidence: high
+
   test:
     name: Run Tests
     runs-on: ubuntu-latest

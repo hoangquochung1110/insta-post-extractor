@@ -92,6 +92,10 @@ def find_links(text: str) -> List[str]:
 
 
 def extract_links_from_post(url: str) -> Tuple[List[str], str]:
+    # audit URL scheme to allow only http and https
+    scheme = urllib.parse.urlparse(url).scheme
+    if scheme not in ('http', 'https'):
+        return [], 'Invalid URL scheme'
     try:
         with urllib.request.urlopen(url) as response:
             html_content = response.read().decode('utf-8')
@@ -103,6 +107,10 @@ def extract_links_from_post(url: str) -> Tuple[List[str], str]:
         return [], str(e)
 
 def extract_address_from_post(url: str) -> Tuple[List[str], str]:
+    # audit URL scheme to allow only http and https
+    scheme = urllib.parse.urlparse(url).scheme
+    if scheme not in ('http', 'https'):
+        return [], 'Invalid URL scheme'
     try:
         with urllib.request.urlopen(url) as response:
             html_content = response.read().decode('utf-8')
