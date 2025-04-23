@@ -102,6 +102,8 @@ jobs:
   # --- Terraform Plan Job: preview infrastructure changes in PRs using remote state backend ---
   terraform-plan:
     name: Terraform Plan
+    outputs:
+      has_changes: ${{ steps.tf_plan.outputs.has_changes }}
     needs: [build]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -120,11 +122,31 @@ jobs:
         uses: hashicorp/setup-terraform@v2
       - name: Terraform Init
         run: terraform init
-      - name: Terraform Plan
+      - name: See if there are changes in resources
+        id: tf_plan
         run: |
           terraform plan -input=false -out=tfplan \
             -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
+            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}" \
+            -detailed-exitcode || echo "Terraform plan exit code: $?"
+
+          # Check the exit code
+          # Exit code 0 = No changes
+          # Exit code 2 = Changes detected
+          # Any other exit code = Error
+          PLAN_EXIT_CODE=$?
+          
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "No changes detected in Terraform plan"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "Changes detected in Terraform plan"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Terraform plan failed with exit code: $PLAN_EXIT_CODE"
+            echo "has_changes=error" >> $GITHUB_OUTPUT
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: tfplan
@@ -132,7 +154,8 @@ jobs:
 
   # --- Deploy Job: apply changes and publish Lambda updates ---
   deploy:
-    needs: build
+    needs: [build, terraform-plan]
+    if: needs.terraform-plan.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -151,15 +174,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: sam-package
+          path: terraform/environments/dev  # Ensures artifact is in working directory
       - name: Terraform Setup
         uses: hashicorp/setup-terraform@v2
       - name: Terraform Init
         run: terraform init
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
-            -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
+            # Ensure packaged.yaml is accessible
+            ls -la  # For debugging
+
+            terraform apply -auto-approve \
+              -var="artifact_bucket=${{ env.S3_BUCKET }}" \
+              -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
       - name: Publish Lambda Version
         id: publish_version
         run: |
