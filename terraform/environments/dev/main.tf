@@ -31,8 +31,8 @@ locals {
       runtime       = "python3.12"
       memory_size   = 128
       timeout       = 30
-      s3_bucket                      = "ig-post-extractor-artifact"
-      s3_key                         = "dev/LATEST/ig_post_extractor.zip"
+      s3_bucket                      = var.artifact_bucket
+      s3_key                         = "${local.environment}/${var.artifact_prefix}/ig_post_extractor.zip"
       publish = false
       # Define aliases for this function
       aliases = {
