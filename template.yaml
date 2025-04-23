@@ -4,8 +4,8 @@ Resources:
   IgPostExtractor:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
-      Handler: src/functions/ig_post_extractor.lambda_handler
+      CodeUri: src/functions
+      Handler: ig_post_extractor.lambda_handler
       Runtime: python3.12
       Timeout: 30
       MemorySize: 128

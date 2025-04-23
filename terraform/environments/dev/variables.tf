@@ -1,9 +1,7 @@
-variable "api_gw_log_group" {
+variable "artifact_bucket" {
   type = string
 }
 
-variable "api_key_name" {
+variable "artifact_prefix" {
   type = string
 }
-
-  
