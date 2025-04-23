@@ -1,4 +1,6 @@
 name: Lambda CI/CD Pipeline
+permissions:
+  id-token: write
 
 on:
   push:
@@ -26,10 +28,10 @@ jobs:
         with:
           version: '1.137.1'
           use-installer: true
-      - uses: aws-actions/configure-aws-credentials@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
       - name: Install dependencies
         run: |
@@ -57,30 +59,20 @@ jobs:
       s3-key: ${{ steps.package.outputs.s3-key }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-
       - name: Install SAM CLI
         uses: aws-actions/setup-sam@v2
         with:
           version: '1.137.1'
           use-installer: true
-      - uses: aws-actions/configure-aws-credentials@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
-
       - name: Build with SAM
         run: sam build --template-file template.yaml
       - name: Package and upload to S3
@@ -110,6 +102,8 @@ jobs:
   # --- Terraform Plan Job: preview infrastructure changes in PRs using remote state backend ---
   terraform-plan:
     name: Terraform Plan
+    outputs:
+      has_changes: ${{ steps.tf_plan.outputs.has_changes }}
     needs: [build]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -119,23 +113,49 @@ jobs:
         working-directory: terraform/environments/dev
     steps:
       - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
+          aws-region: ${{ env.AWS_REGION }}
       - name: Terraform Setup
         uses: hashicorp/setup-terraform@v2
       - name: Terraform Init
         run: terraform init
-      - name: Terraform Plan
+      - name: See if there are changes in resources
+        id: tf_plan
         run: |
           terraform plan -input=false -out=tfplan \
             -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
+            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}" \
+            -detailed-exitcode || echo "Terraform plan exit code: $?"
+
+          # Check the exit code
+          # Exit code 0 = No changes
+          # Exit code 2 = Changes detected
+          # Any other exit code = Error
+          PLAN_EXIT_CODE=$?
+          
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "No changes detected in Terraform plan"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "Changes detected in Terraform plan"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Terraform plan failed with exit code: $PLAN_EXIT_CODE"
+            echo "has_changes=error" >> $GITHUB_OUTPUT
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: tfplan
+          path: terraform/environments/dev/tfplan
 
   # --- Deploy Job: apply changes and publish Lambda updates ---
   deploy:
-    needs: build
+    needs: [build, terraform-plan]
+    if: needs.terraform-plan.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -145,35 +165,28 @@ jobs:
       name: dev
     steps:
       - uses: actions/checkout@v4
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
       - name: Download SAM package
         uses: actions/download-artifact@v4
         with:
           name: sam-package
-
+          path: terraform/environments/dev  # Ensures artifact is in working directory
       - name: Terraform Setup
         uses: hashicorp/setup-terraform@v2
-
       - name: Terraform Init
         run: terraform init
-
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
-            -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+            # Ensure packaged.yaml is accessible
+            ls -la  # For debugging
 
+            terraform apply -auto-approve \
+              -var="artifact_bucket=${{ env.S3_BUCKET }}" \
+              -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
       - name: Publish Lambda Version
         id: publish_version
         run: |
@@ -183,7 +196,6 @@ jobs:
             --query Version)
           echo "Published version $version"
           echo "version=$version" >> $GITHUB_OUTPUT
-
       - name: Update dev alias to latest version
         run: |
           aws lambda update-alias \

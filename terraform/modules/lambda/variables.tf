@@ -18,7 +18,7 @@ variable "functions" {
     # Aliases configuration
     aliases = optional(map(object({
       description     = optional(string)
-      function_version = optional(string, "$LATEST")
+      function_version = string
       routing_config  = optional(object({
         additional_version_weights = optional(map(number))
       }))

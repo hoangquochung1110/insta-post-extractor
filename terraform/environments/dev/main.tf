@@ -18,6 +18,10 @@ provider "aws" {
   region = "ap-southeast-1"
 }
 
+data "aws_lambda_function" "IgPostExtractor" {
+  function_name = "IgPostExtractor"
+}
+
 
 locals {
   project             = "IgPostExtractor"
@@ -39,8 +43,8 @@ locals {
       # Define aliases for this function
       aliases = {
         dev = {
-          description = "dev alias"
-          # Uses $LATEST by default
+          description      = "dev alias"
+          function_version = data.aws_lambda_function.IgPostExtractor.version
         },
       }
     }
