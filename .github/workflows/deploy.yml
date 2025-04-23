@@ -54,7 +54,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     outputs:
-      s3-prefix: ${{ steps.package.outputs.s3-prefix }}
+      s3-key: ${{ steps.package.outputs.s3-key }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,6 +92,15 @@ jobs:
             --output-template-file packaged.yaml \
             --s3-bucket ${{ env.S3_BUCKET }} \
             --s3-prefix functions/ig_post_extractor
+    
+          # Extract the exact S3 key from the packaged.yaml
+          S3_KEY=$(grep -o "s3://${{ env.S3_BUCKET }}/[^\"]*" packaged.yaml | head -1 | sed "s|s3://${{ env.S3_BUCKET }}/||")
+          
+          # Output the S3 key for use in subsequent steps
+          echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
+          
+          # For debugging
+          echo "Extracted S3 key: $S3_KEY"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -119,7 +128,7 @@ jobs:
         run: |
           terraform plan -input=false -out=tfplan \
             -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-prefix }}"
+            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
       - uses: actions/upload-artifact@v4
         with:
           name: tfplan
@@ -160,7 +169,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var="artifact_bucket=${{ env.S3_BUCKET }}" \
-            -var="artifact_prefix=${{ needs.build.outputs.s3-prefix }}"
+            -var="artifact_prefix=${{ needs.build.outputs.s3-key }}"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
