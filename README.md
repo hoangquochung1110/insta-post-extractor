@@ -1,8 +1,19 @@
 # Instagram Post Extractor
 
-This project provides an AWS Lambda function, exposed via API Gateway, designed to extract information from public Instagram posts.
+## Giới thiệu
 
-## Architecture
+Instagram Post Extractor là một công cụ tự động hóa đặc biệt được thiết kế cho người dùng iOS, giúp tự động trích xuất thông tin địa điểm từ các bài đăng trên Instagram. Dự án được xây dựng trên nền tảng serverless architecture của AWS, kết hợp với khả năng xử lý ngôn ngữ tự nhiên thông qua Amazon Bedrock (LLM) để phân tích và trích xuất chính xác thông tin địa điểm từ nội dung bài đăng.
+
+Công cụ này đặc biệt hữu ích cho những người dùng muốn nhanh chóng lấy thông tin địa điểm từ các bài đăng Instagram mà không cần phải thao tác thủ công. Với việc sử dụng serverless architecture, hệ thống đảm bảo khả năng mở rộng cao và chi phí vận hành tối ưu, chỉ tính phí khi có yêu cầu thực tế.
+
+Để tối ưu trải nghiệm người dùng trên iOS, dự án cung cấp một iOS Shortcut được thiết kế đặc biệt. Shortcut này cho phép người dùng:
+- Gửi URL bài đăng Instagram trực tiếp đến API thông qua HTTP request
+- Tự động nhận kết quả từ Lambda function
+- Mở ngay lập tức Google Maps với địa điểm đã được trích xuất
+
+Quy trình này giúp người dùng có thể truy cập thông tin địa điểm một cách nhanh chóng chỉ với một vài thao tác đơn giản trên thiết bị iOS của họ.
+
+## Kiến trúc
 
 ![Architecture Diagram](https://static.ssan.me/IG+Post+Extractor+Diagram.png)
 
