@@ -2,6 +2,10 @@
 
 This project provides an AWS Lambda function, exposed via API Gateway, designed to extract information from public Instagram posts.
 
+## Architecture
+
+![Architecture Diagram](https://static.ssan.me/IG+Post+Extractor+Diagram.png)
+
 ## Features
 
 *   Accepts an Instagram post URL.
