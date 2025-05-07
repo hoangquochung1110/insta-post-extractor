@@ -1,8 +1,8 @@
 # terraform.tfvars.example
 # Copy this file to terraform.tfvars and fill in the actual values.
 
-# Name of the existing CloudWatch log group to import/manage
-api_gw_log_group = "<API-Gateway-Execution-Logs_59vejac25d/dev>"
+# S3 bucket name for storing Lambda function artifacts
+artifact_bucket = "ig-post-extractor-artifact"
 
-# Name of the API key created for your usage plan
-api_key_name     = "<9objrbstec>"
+# S3 prefix path for the Lambda function artifacts
+artifact_prefix = "functions/ig_post_extractor/4cc602b72521a0bc4bc3690b22bc29e7"
