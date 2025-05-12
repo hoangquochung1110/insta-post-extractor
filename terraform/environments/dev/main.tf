@@ -64,6 +64,11 @@ module "log_group" {
   source = "../../modules/cloudwatch"
 
   name              = local.api_gw_log_group
+  lambda_functions = {
+    ig_post_extractor = {
+      function_name = "IgPostExtractor"
+    }
+  }
   retention_in_days = 7
 }
 

@@ -28,3 +28,11 @@ output "execution_role_arn" {
   description = "ARN of the Lambda execution role"
   value       = module.iam.execution_role_arn
 }
+
+output "log_groups_api_log_group" {
+  value = module.log_group.api_gw_log_group_arn
+}
+
+output "log_groups_lambda_log_group" {
+  value = module.log_group.lambda_log_group_arns
+}
