@@ -1,0 +1,66 @@
+name: Lambda CI Pipeline
+permissions:
+  id-token: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ development ]
+  pull_request:
+    branches: [ development ]
+
+env:
+  AWS_REGION: ap-southeast-1
+  S3_BUCKET: ig-post-extractor-artifact
+  LAMBDA_NAME: IgPostExtractor
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
+        with:
+          exclude: ".svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg"
+          targets: "src/functions/"
+          confidence: high
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          version: '1.137.1'
+          use-installer: true
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::838835070561:role/github_actions_ig_post_extractor
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq make
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('src/functions/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r src/functions/requirements.txt
+      - name: Run simple tests via Makefile
+        run: make test-all
+      # TODO: Replace Makefile-based tests with a proper test framework as project grows

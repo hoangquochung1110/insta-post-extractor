@@ -1,7 +1,7 @@
 output "function_names" {
   description = "Map of function names"
   value = {
-    for key, function in aws_lambda_function.functions :
+    for key, function in data.aws_lambda_function.functions :
     key => function.function_name
   }
 }
@@ -9,7 +9,7 @@ output "function_names" {
 output "function_arns" {
   description = "Map of function ARNs"
   value = {
-    for key, function in aws_lambda_function.functions :
+    for key, function in data.aws_lambda_function.functions :
     key => function.arn
   }
 }
@@ -26,7 +26,7 @@ output "alias_arns" {
 output "functions" {
   description = "Complete function information including aliases"
   value = {
-    for func_key, func in aws_lambda_function.functions : func_key => {
+    for func_key, func in data.aws_lambda_function.functions : func_key => {
       name = func.function_name
       arn  = func.arn
       aliases = {
